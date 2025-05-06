@@ -210,3 +210,29 @@ func walkDir(dirPath string, parentNode *DirectoryNode) error {
 	}
 	return nil
 }
+
+// PrintGraph recursively prints a graph node and its children with indentation
+func PrintGraph(node SkaffoldNode, level int) {
+	// Create indentation based on level
+	indent := strings.Repeat("  ", level)
+	
+	// Print current node
+	nodeType := ""
+	if node.Type() == NODETYPE_DIRECTORY {
+		nodeType = "[DIR]"
+	} else if node.Type() == NODETYPE_FILE {
+		// Try to cast to FileNode to get action
+		if fileNode, ok := node.(interface{ Action() string }); ok {
+			nodeType = fmt.Sprintf("[FILE:%s]", fileNode.Action())
+		} else {
+			nodeType = "[FILE]"
+		}
+	}
+	
+	fmt.Printf("%s%s %s\n", indent, nodeType, node.Key())
+	
+	// Print children recursively
+	for _, child := range node.Children() {
+		PrintGraph(child, level+1)
+	}
+}
