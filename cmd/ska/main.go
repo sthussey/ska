@@ -10,7 +10,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/sthussey/ska"
+	"github.com/sthussey/ska/sink/console"
+	"github.com/sthussey/ska/source/fs"
 	"github.com/urfave/cli/v3"
 )
 
@@ -36,15 +37,15 @@ func main() {
 						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
 							rootPath := cmd.String("path")
-							
-							root, err := ska.BuildGraph(rootPath)
+
+							root, err := fs.BuildGraph(rootPath)
 							if err != nil {
 								return fmt.Errorf("failed to build graph: %w", err)
 							}
-							
+
 							fmt.Printf("Successfully built graph from %s\n", rootPath)
 							fmt.Printf("Root node: %s (%s)\n", root.Key(), root.Type())
-							
+
 							return nil
 						},
 					},
@@ -61,13 +62,13 @@ func main() {
 						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
 							rootPath := cmd.String("path")
-							
-							root, err := ska.BuildGraph(rootPath)
+
+							root, err := fs.BuildGraph(rootPath)
 							if err != nil {
 								return fmt.Errorf("failed to build graph: %w", err)
 							}
-							
-							ska.PrintGraph(root, 0)
+
+							console.PrintGraph(root, 0)
 							return nil
 						},
 					},
