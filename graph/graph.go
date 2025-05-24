@@ -1,14 +1,22 @@
-package ska
+package graph
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 )
 
 const NODETYPE_DIRECTORY = "DIRECTORY" //nolint:revive // ignore ST1003
 const NODETYPE_FILE = "FILE"
+
+type CollisionAction string
+
+// A collision is defined as two identitically keyed nodes ocurring in the graph with the same prefix
+// but non-reconciliable data. Two file nodes with the same name at the same prefix in the graph but
+// differing content data.
+var ErrorOnCollision = CollisionAction("ERROR")         // Abort and return error when merging nodes collide
+var OverwriteOnCollision = CollisionAction("OVERWRITE") // The controlling graph node replaces other nodes
+var YieldOnCollision = CollisionAction("YIELD")         // The controlling graph node yields to other nodes. If all nodes in the merge yield, the control node is chosen.
+var DefaultOnCollision = CollisionAction("DEFAULT")     // The action is chosen based on the merge options specified
 
 type SkaffoldNode interface {
 	Children() []SkaffoldNode
@@ -17,6 +25,7 @@ type SkaffoldNode interface {
 	SetParent(parent SkaffoldNode) error
 	Key() string
 	Type() string
+	CollisionAction() CollisionAction
 }
 
 type DirectoryNode struct {
@@ -143,96 +152,10 @@ func (f *FileNode) ContentType() string {
 	return f.content_type
 }
 
-// BuildGraph walks the directory tree starting at rootPath and builds a graph.
-func BuildGraph(rootPath string) (SkaffoldNode, error) {
-	absRootPath, err := filepath.Abs(rootPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get absolute path for %s: %w", rootPath, err)
-	}
-
-	// Get info about the root path
-	info, err := os.Stat(absRootPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to stat root path %s: %w", absRootPath, err)
-	}
-	if !info.IsDir() {
-		return nil, fmt.Errorf("root path %s is not a directory", absRootPath)
-	}
-
-	// Create the root node using the base name of the absolute path
-	rootNode := NewDirectoryNode(filepath.Base(absRootPath))
-
-	// Start the recursive walk
-	err = walkDir(absRootPath, rootNode)
-	if err != nil {
-		return nil, err // Error already contains context from walkDir
-	}
-
-	return rootNode, nil
+type MergeOptions struct {
+	DefaultCollisionAction CollisionAction
 }
 
-// walkDir recursively walks the directory structure under dirPath
-// and adds nodes to the parentNode.
-func walkDir(dirPath string, parentNode *DirectoryNode) error {
-	entries, err := os.ReadDir(dirPath)
-	if err != nil {
-		return fmt.Errorf("failed to read directory %s: %w", dirPath, err)
-	}
+func Union(opts MergeOptions, control SkaffoldNode, add ...SkaffoldNode) (SkaffoldNode, error) {
 
-	for _, entry := range entries {
-		// Construct the full path for the current entry
-		fullPath := filepath.Join(dirPath, entry.Name())
-
-		if entry.IsDir() {
-			// Create a new directory node
-			dirNode := NewDirectoryNode(entry.Name())
-
-			// Set parent relationship (error ignored as SetParent currently always returns nil)
-			_ = dirNode.SetParent(parentNode)
-			_ = parentNode.AddChild(dirNode)
-
-			// Recursively walk the subdirectory
-			err = walkDir(fullPath, dirNode)
-			if err != nil {
-				return err // Propagate errors from deeper levels
-			}
-		} else {
-			// Create a new file node
-			fileNode := NewFileNode(entry.Name())
-
-			// Set parent relationship (error ignored as SetParent currently always returns nil)
-			_ = fileNode.SetParent(parentNode)
-			_ = parentNode.AddChild(fileNode)
-
-			// Action is already set in NewFileNode based on extension
-			// You could add more logic here later if needed (e.g., read content type)
-		}
-	}
-	return nil
-}
-
-// PrintGraph recursively prints a graph node and its children with indentation
-func PrintGraph(node SkaffoldNode, level int) {
-	// Create indentation based on level
-	indent := strings.Repeat("  ", level)
-	
-	// Print current node
-	nodeType := ""
-	if node.Type() == NODETYPE_DIRECTORY {
-		nodeType = "[DIR]"
-	} else if node.Type() == NODETYPE_FILE {
-		// Try to cast to FileNode to get action
-		if fileNode, ok := node.(interface{ Action() string }); ok {
-			nodeType = fmt.Sprintf("[FILE:%s]", fileNode.Action())
-		} else {
-			nodeType = "[FILE]"
-		}
-	}
-	
-	fmt.Printf("%s%s %s\n", indent, nodeType, node.Key())
-	
-	// Print children recursively
-	for _, child := range node.Children() {
-		PrintGraph(child, level+1)
-	}
 }
