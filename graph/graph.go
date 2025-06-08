@@ -1,9 +1,12 @@
 package graph
 
 import (
+	"crypto/md5"
 	"fmt"
 	"slices"
 	"strings"
+
+	"github.com/h2non/filetype"
 )
 
 const NODETYPE_DIRECTORY = "DIRECTORY" //nolint:revive // ignore ST1003
@@ -108,7 +111,7 @@ const FILEACTION_TEMPLATE = "TEMPLATE"
 type FileNode struct {
 	name         string
 	action       string
-	data         []byte
+	datahash     []byte
 	content_type string
 	parent       SkaffoldNode
 }
@@ -133,6 +136,20 @@ func NewFileNodeWithParent(name string, parent SkaffoldNode) *FileNode {
 	return n
 }
 
+func (f *FileNode) SetContent(src []byte) error {
+	if len(src) == 0 {
+		return nil
+	}
+
+	kind, _ := filetype.Match(src)
+	if kind != filetype.Unknown {
+		f.content_type = kind.MIME.Value
+	}
+
+	md5sum := md5.Sum(src)
+	f.datahash = md5sum[:]
+	return nil
+}
 func (f *FileNode) CollisionAction() CollisionAction {
 	return DefaultOnCollision
 }

@@ -65,6 +65,13 @@ func walkDir(dirPath string, parentNode *graph.DirectoryNode) error {
 			// Create a new file node
 			fileNode := graph.NewFileNode(entry.Name())
 
+			// Very naive, large files break here
+			content, err := os.ReadFile(fullPath)
+			// this eats errors for now. need to determine how fatal not being able to hash a file is
+			if err == nil {
+				fileNode.SetContent(content)
+			}
+
 			// Set parent relationship (error ignored as SetParent currently always returns nil)
 			_ = fileNode.SetParent(parentNode)
 			_ = parentNode.AddChild(fileNode)
